@@ -1,0 +1,109 @@
+@host = https://localhost:7191
+
+### 1. Ollama status
+GET {{host}}/api/system/ollama
+
+### 2. Warm local models
+POST {{host}}/api/system/warmup
+
+### 3. Seed demo data
+POST {{host}}/api/demo/seed
+
+### 4. Inspect documents
+GET {{host}}/api/documents?tenantId=company-1
+
+### 5. Inspect chunks and embedding preview/full vector
+GET {{host}}/api/documents/vacation-policy-v7/chunks?tenantId=company-1&includeEmbedding=false
+
+### 6. Retrieval only - no chat LLM
+POST {{host}}/api/search/semantic
+Content-Type: application/json
+
+{
+  "tenantId": "company-1",
+  "userId": "naor",
+  "roles": ["employee"],
+  "query": "How many vacation days can be carried into next year?",
+  "topK": 10,
+  "minimumSimilarity": 0.1
+}
+
+### 7. Complete RAG pipeline
+POST {{host}}/api/rag/ask
+Content-Type: application/json
+
+{
+  "tenantId": "company-1",
+  "userId": "naor",
+  "roles": ["employee"],
+  "question": "How many vacation days can be carried into next year?",
+  "evaluateGroundedness": true
+}
+
+### 8. Tenant isolation test - must not retrieve company-2's 10-day rule
+POST {{host}}/api/rag/ask
+Content-Type: application/json
+
+{
+  "tenantId": "company-1",
+  "userId": "naor",
+  "roles": ["employee"],
+  "question": "Can employees carry over 10 vacation days?",
+  "evaluateGroundedness": false
+}
+
+### 9. Role authorization test - employee must not retrieve HR policy
+POST {{host}}/api/search/semantic
+Content-Type: application/json
+
+{
+  "tenantId": "company-1",
+  "userId": "naor",
+  "roles": ["employee"],
+  "query": "When is the annual salary review?"
+}
+
+### 10. Same query as HR
+POST {{host}}/api/search/semantic
+Content-Type: application/json
+
+{
+  "tenantId": "company-1",
+  "userId": "hr-user",
+  "roles": ["hr"],
+  "query": "When is the annual salary review?"
+}
+
+### Recent traces
+GET {{host}}/api/traces?count=20
+
+### 11. Inspect one embedding
+POST {{host}}/api/debug/embedding
+Content-Type: application/json
+
+{
+  "text": "Remaining annual leave can be carried into the following year.",
+  "purpose": "Query",
+  "includeFullVector": false
+}
+
+### 12. Compare semantic similarity
+POST {{host}}/api/debug/similarity
+Content-Type: application/json
+
+{
+  "textA": "Employees may transfer unused vacation days.",
+  "textB": "Remaining annual leave can be carried into the following year.",
+  "purposeA": "Query",
+  "purposeB": "Document"
+}
+
+### 13. Call the LLM directly without RAG
+POST {{host}}/api/debug/chat
+Content-Type: application/json
+
+{
+  "systemPrompt": "You are concise.",
+  "userPrompt": "Explain embeddings in one sentence.",
+  "temperature": 0
+}
